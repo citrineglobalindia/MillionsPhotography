@@ -547,3 +547,45 @@ body.menu-open .mnav .mcta{opacity:1;transform:none}
   .svc::-webkit-scrollbar{display:none}
   .svc article{flex:0 0 78%;scroll-snap-align:center}
 }
+
+/* ===== tighter vertical rhythm ===== */
+.sec{padding:clamp(44px,5.5vw,84px) 0}
+.sec-tight{padding:clamp(30px,4vw,56px) 0}
+.sec-head{margin-bottom:clamp(22px,3vw,40px)}
+.sec-head p{margin-top:10px}
+.rule{margin-top:14px}
+.phead{padding:clamp(28px,3.5vw,48px) var(--gut) clamp(20px,2.5vw,32px)}
+.crumbs{margin-bottom:12px}
+.pbanner{height:clamp(240px,40vw,500px)}
+.ig{padding:clamp(40px,5vw,64px) 0 clamp(32px,4vw,52px)}
+.quote-band{padding:clamp(24px,3vw,40px) var(--gut)}
+.cta{height:clamp(280px,32vw,420px)}
+.cta h2{margin-bottom:22px}
+.stat{padding:clamp(20px,2.6vw,34px) 14px}
+.svc article{padding:clamp(22px,2.4vw,34px) clamp(18px,2vw,30px)}
+.ftr{padding-top:clamp(36px,4vw,52px)}
+.ftr .copy{margin-top:clamp(24px,3vw,36px)}
+.pager{margin-top:clamp(28px,3.5vw,48px)}
+.pager a{padding:18px 12px}
+.tl{padding:14px 0}
+.faq summary{padding:18px 40px 18px 0}
+.tabs{margin-bottom:clamp(20px,2.6vw,32px)}
+.film h3,.card h3{margin-top:12px}
+.info{margin:20px 0;padding:16px 0}
+.contact-grid aside .media{margin-bottom:24px!important}
+.story-meta{margin-top:16px}
+@media (max-width:980px){.sec{padding:clamp(38px,7vw,60px) 0}}
+@media (max-width:720px){
+  .sec{padding:36px 0}
+  .sec-tight{padding:26px 0}
+  .sec-head{margin-bottom:20px}
+  .phead{padding:22px var(--gut) 18px}
+  .pbanner{height:56vw;min-height:200px}
+  .cta{min-height:300px;padding:48px 0}
+  .ig{padding:36px 0 28px}
+  .quote-band{padding:22px var(--gut)}
+  .stat{padding:18px 8px}
+  .ftr{padding-top:32px}
+  .contact-grid aside{padding-bottom:32px;margin-bottom:32px}
+  .swipe-hint{margin-top:10px}
+}
