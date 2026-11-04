@@ -39,6 +39,7 @@
   /* ---------- config → DOM ---------- */
   $$('[data-social]').forEach(a => { const u = C.social && C.social[a.dataset.social]; if (u) a.href = u; });
   $$('[data-email]').forEach(a => { a.href = 'mailto:' + C.email; if (!a.children.length) a.textContent = C.email; });
+  if (C.whatsapp) $$('.mbar a[data-email]').forEach(a => { a.href = 'https://wa.me/' + C.whatsapp; a.target = '_blank'; a.lastChild.textContent = 'WhatsApp'; });
   $$('[data-phone]').forEach(el => {
     if (C.whatsapp) { el.innerHTML = `<a href="https://wa.me/${C.whatsapp}" target="_blank" rel="noopener">${C.phoneDisplay || '+' + C.whatsapp}</a>`; }
     else el.closest('li') && el.closest('li').remove();
@@ -96,6 +97,7 @@
 
   /* ---------- reveal on scroll ---------- */
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+  if (matchMedia('(max-width:720px)').matches) $$('.films,.cards,.svc').forEach(g => g.removeAttribute('data-stagger'));
   $$('[data-stagger]').forEach(g => [...g.children].forEach((c, n) => { if (!c.hasAttribute('data-reveal')) c.setAttribute('data-reveal', ''); c.style.setProperty('--d', (n % 6) * 0.09 + 's'); }));
   $$('[data-reveal], .mask, .split-h').forEach(el => io.observe(el));
 
@@ -121,6 +123,7 @@
     const h = document.documentElement.scrollHeight - innerHeight, k = h > 0 ? scrollY / h : 0;
     if (top) { top.classList.toggle('on', scrollY > 600); ring.style.strokeDashoffset = 151 * (1 - k); }
     if (enq) enq.classList.toggle('on', scrollY > 700 && k < .93);
+    const mb = $('.mbar'); if (mb) mb.classList.toggle('on', scrollY > 300);
   };
   top && top.addEventListener('click', () => scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }));
 
@@ -185,7 +188,7 @@
     const lb = $('#lightbox'), img = $('.stage img', lb), cnt = $('.count', lb), cap = $('.cap', lb), strip = $('.strip', lb);
     let list = [], k = 0;
     const show = n => {
-      k = (n + list.length) % list.length; const it = list[k], src = $('img', it).dataset.full || $('img', it).src;
+      k = (n + list.length) % list.length; const it = list[k], src = $('img', it).dataset.full || $('img', it).currentSrc || $('img', it).src;
       img.classList.add('swap');
       const pre = new Image(); pre.onload = () => { img.src = src; img.alt = $('img', it).alt; img.classList.remove('swap'); }; pre.src = src;
       cnt.textContent = String(k + 1).padStart(2, '0') + ' / ' + String(list.length).padStart(2, '0');
@@ -195,7 +198,7 @@
     };
     items.forEach(it => {
       it.tabIndex = 0; it.setAttribute('role', 'button');
-      const go = () => { list = items.filter(i => !i.classList.contains('out')); strip.innerHTML = list.map(i => `<button aria-label="View image"><img src="${$('img', i).src}" alt=""></button>`).join(''); $$('button', strip).forEach((b, j) => b.onclick = () => show(j)); openOverlay(lb); show(list.indexOf(it)); };
+      const go = () => { list = items.filter(i => !i.classList.contains('out')); strip.innerHTML = list.map(i => `<button aria-label="View image"><img src="${$('img', i).currentSrc || $('img', i).src}" alt=""></button>`).join(''); $$('button', strip).forEach((b, j) => b.onclick = () => show(j)); openOverlay(lb); show(list.indexOf(it)); };
       it.addEventListener('click', go); it.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     });
     $('.pv', lb).innerHTML = ICON.prev; $('.nx', lb).innerHTML = ICON.next;
