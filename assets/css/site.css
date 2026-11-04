@@ -589,3 +589,36 @@ body.menu-open .mnav .mcta{opacity:1;transform:none}
   .contact-grid aside{padding-bottom:32px;margin-bottom:32px}
   .swipe-hint{margin-top:10px}
 }
+
+/* ===== mobile menu v2 — GPU-only animation, no layout thrash ===== */
+.mnav{clip-path:none!important;visibility:hidden;opacity:0;transform:translate3d(0,-14px,0);transition:opacity .38s var(--ease),transform .5s var(--ease),visibility 0s linear .5s;will-change:opacity,transform;overscroll-behavior:contain;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,var(--ivory) 0%,#f4efe8 100%)}
+body.menu-open .mnav{visibility:visible;opacity:1;transform:none;transition:opacity .38s var(--ease),transform .5s var(--ease),visibility 0s}
+.mnav a.big{transition:opacity .45s var(--ease),transform .55s var(--ease);transform:translate3d(0,18px,0);will-change:transform,opacity;padding:4px 0;border-bottom:1px solid rgba(27,23,21,.06)}
+.mnav a.big:active{color:var(--maroon)}
+.burger{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.burger i{will-change:transform}
+body.scroll-lock{position:fixed;left:0;right:0;overflow:hidden}
+.mnav .meta{opacity:0;transition:opacity .5s .35s}
+body.menu-open .mnav .meta{opacity:1}
+
+/* ===== hero video slides ===== */
+.hero .slide video{width:100%;height:100%;object-fit:cover;object-position:center 35%}
+
+/* ===== honeypot ===== */
+.hp{position:absolute!important;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+/* ===== announcement bar ===== */
+.ann{position:fixed;top:0;left:0;right:0;z-index:105;height:38px;display:flex;align-items:center;justify-content:center;gap:14px;padding:0 44px;background:var(--maroon);color:#fff;font-family:var(--f-display);font-size:12px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.ann span{overflow:hidden;text-overflow:ellipsis}
+.ann a{color:#fff;border-bottom:1px solid rgba(255,255,255,.6);flex:none}
+.ann button{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;color:#fff;font-size:20px;line-height:1;opacity:.8}
+html.has-ann .hdr{top:38px}
+html.has-ann main{padding-top:calc(var(--hdr) + 38px)}
+html.has-ann .mnav{padding-top:calc(110px + 38px)}
+@media (max-width:720px){.ann{font-size:10.5px;letter-spacing:.08em;justify-content:flex-start;padding:0 40px 0 14px}}
+
+/* ===== floating WhatsApp ===== */
+.wa-float{position:fixed;right:22px;bottom:86px;z-index:91;width:54px;height:54px;border-radius:50%;background:#25d366;color:#fff;display:grid;place-items:center;box-shadow:0 10px 28px rgba(37,211,102,.4);transition:transform .4s var(--ease)}
+.wa-float:hover{transform:scale(1.08)}
+.wa-float svg{width:28px;height:28px}
+@media (max-width:720px){.wa-float{display:none}}

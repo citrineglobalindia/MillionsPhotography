@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Studio Admin · Million's Photography &amp; Films</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b1715">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div id="boot" class="boot"><b>MPF</b><span>Loading studio…</span></div>
+
+<!-- login -->
+<section id="login" class="login" hidden>
+  <div class="login-art"><img src="/assets/img/hero-palace-1600.webp" alt=""><div class="login-quote"><b>MPF</b><p>Every picture, a feeling.<br>Every story, yours forever.</p></div></div>
+  <div class="login-panel">
+    <form id="login-form" class="login-form" novalidate>
+      <p class="kicker">Million's Photography &amp; Films</p>
+      <h1>Studio Admin</h1>
+      <p class="muted">Sign in to manage enquiries, galleries, films and the website.</p>
+      <div class="demo-note" data-demo hidden><b>Demo mode.</b> Supabase isn't connected yet, so any email and password (4+ characters) works and changes are saved only in this browser.</div>
+      <label class="f"><span>Email</span><input name="email" type="email" autocomplete="username" required></label>
+      <label class="f"><span>Password</span><input name="password" type="password" autocomplete="current-password" required minlength="4"></label>
+      <p class="form-err" role="alert"></p>
+      <button class="btn pri wide" type="submit">Sign in</button>
+      <button class="link-btn" type="button" id="forgot">Forgot password?</button>
+    </form>
+  </div>
+</section>
+
+<!-- app -->
+<div id="app" class="app" hidden>
+  <aside class="side" id="side">
+    <a class="brand" href="#/dashboard"><b>MPF</b><span>Studio Admin</span></a>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <span class="mode-badge" id="mode-badge"></span>
+      <a class="side-link" href="/" target="_blank" rel="noopener">View website ↗</a>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <main class="main">
+    <header class="top">
+      <button class="icon-btn burger" id="burger" aria-label="Open menu"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <h1 class="page-title" id="page-title">Dashboard</h1>
+      <div class="top-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="global-search" type="search" placeholder="Search enquiries…" aria-label="Search enquiries"></div>
+      <div class="user" id="user"></div>
+    </header>
+    <div class="demo-bar" data-demo hidden>Demo mode — changes are stored in this browser only. Add your Supabase URL and key in <code>assets/js/config.js</code> to go live. <a href="#/settings">Details</a></div>
+    <section class="view" id="view" tabindex="-1"></section>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <header><h2 id="drawer-title"></h2><button class="icon-btn" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="drawer-body"></div>
+  <footer><button class="btn danger ghost" data-delete hidden>Delete</button><span class="sp"></span><button class="btn" data-close>Cancel</button><button class="btn pri" data-save>Save</button></footer>
+</aside>
+<div class="modal" id="modal" aria-hidden="true" role="dialog" aria-modal="true"><div class="modal-card"></div></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="/assets/js/config.js"></script>
+<script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

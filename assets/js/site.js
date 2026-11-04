@@ -1,5 +1,5 @@
 /* Million's Photography & Films — interactions */
-(() => {
+const MPF_BOOT = () => {
   const C = window.MPF_CONFIG || {};
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -33,7 +33,7 @@
     if (!a || reduce || e.metaKey || e.ctrlKey || e.shiftKey || a.target === '_blank') return;
     const url = new URL(a.href, location.href);
     if (url.origin !== location.origin || a.hasAttribute('download') || (url.pathname === location.pathname && url.hash)) return;
-    e.preventDefault(); veil.classList.add('on'); setTimeout(() => location.href = url.href, 520);
+    e.preventDefault(); if (document.body.classList.contains('menu-open')) { closeMenu(true); location.href = url.href; return; } veil.classList.add('on'); setTimeout(() => location.href = url.href, 360);
   });
 
   /* ---------- config → DOM ---------- */
@@ -50,15 +50,32 @@
   const onScrollHdr = () => {
     const y = scrollY;
     hdr.classList.toggle('scrolled', y > 40);
-    hdr.classList.toggle('hide', y > 400 && y > lastY && !document.body.classList.contains('menu-open'));
+    hdr.classList.toggle('hide', innerWidth > 980 && y > 400 && y > lastY && !document.body.classList.contains('menu-open'));
     lastY = y;
   };
-  $('.burger').addEventListener('click', () => {
-    const open = document.body.classList.toggle('menu-open');
-    $('.burger').setAttribute('aria-expanded', open);
-    $$('.mnav a.big').forEach((a, i) => a.style.transitionDelay = open ? (0.25 + i * 0.07) + 's' : '0s');
+  const burger = $('.burger'), mnav = $('#mnav'); let lockY = 0;
+  const openMenu = () => {
+    lockY = scrollY; document.body.style.top = -lockY + 'px'; document.body.classList.add('menu-open', 'scroll-lock');
+    burger.setAttribute('aria-expanded', 'true'); mnav.setAttribute('aria-hidden', 'false');
+    $$('.mnav a.big').forEach((a, i) => a.style.transitionDelay = (0.12 + i * 0.05) + 's');
+    setTimeout(() => { const f = $('a', mnav); f && f.focus({ preventScroll: true }); }, 350);
+  };
+  function closeMenu(instant) {
+    if (!document.body.classList.contains('menu-open')) return;
+    $$('.mnav a.big').forEach(a => a.style.transitionDelay = '0s');
+    document.body.classList.remove('menu-open', 'scroll-lock'); document.body.style.top = '';
+    if (!instant) window.scrollTo({ top: lockY, behavior: 'instant' });
+    burger.setAttribute('aria-expanded', 'false'); mnav.setAttribute('aria-hidden', 'true');
+  }
+  burger.addEventListener('click', () => document.body.classList.contains('menu-open') ? (closeMenu(), burger.focus()) : openMenu());
+  addEventListener('keydown', e => {
+    if (!document.body.classList.contains('menu-open')) return;
+    if (e.key === 'Escape') { closeMenu(); burger.focus(); }
+    if (e.key === 'Tab') { const f = [burger, ...$$('a,button', mnav)]; const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
   });
-  addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('menu-open'); });
+  let ty = null; mnav.addEventListener('touchstart', e => ty = e.touches[0].clientY, { passive: true });
+  mnav.addEventListener('touchend', e => { if (ty != null && ty - e.changedTouches[0].clientY > 70) closeMenu(); ty = null; }, { passive: true });
+  addEventListener('resize', () => { if (innerWidth > 980) closeMenu(); });
 
   /* ---------- hero slider ---------- */
   const hero = $('.hero');
@@ -71,6 +88,9 @@
       slides[i].classList.remove('on'); dots[i].classList.remove('on');
       i = (n + slides.length) % slides.length;
       slides[i].classList.add('on'); void dots[i].offsetWidth; dots[i].classList.add('on');
+      slides.forEach((sl, j) => { const vd = $('video', sl); if (vd) { if (j === i) { vd.preload = 'auto'; vd.play().catch(() => {}); } else vd.pause(); } });
+      const sd = slides[i].dataset, cap = $('.cap', hero);
+      if (sd.heading && cap) { $('.eyebrow', cap).textContent = sd.eyebrow; $('h1', cap).innerHTML = sd.heading.split('\n').map(l => `<span class="ln"><span>${l.replace(/[<>&]/g, '')}</span></span>`).join(''); const b = $('.btn', cap); if (sd.btn) { b.firstChild.textContent = sd.btn + ' '; b.href = sd.link || '#'; } }
       clearTimeout(timer); if (!reduce) timer = setTimeout(() => go(i + 1), DUR);
     };
     $('.prev', hero).innerHTML = ICON.prev; $('.next', hero).innerHTML = ICON.next;
@@ -157,7 +177,7 @@
   if (modal) {
     const player = $('.player', modal), title = $('.t', modal);
     const open = el => {
-      const key = el.dataset.film, id = (C.films || {})[key], name = el.dataset.title || 'Wedding Film', poster = el.dataset.poster;
+      const key = el.dataset.film, id = el.dataset.yt || (C.films || {})[key], name = el.dataset.title || 'Wedding Film', poster = el.dataset.poster;
       title.textContent = name.toUpperCase();
       player.innerHTML = id
         ? `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1" title="${name}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`
@@ -248,14 +268,27 @@
       const when = new Date(v('date')).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
       const text = `Hello Million's Photography & Films,\n\nWe'd love to enquire about our date.\n\nNames: ${v('name')} & ${v('partner')}\nEvent: ${v('type')}\nDate: ${when}\nLocation: ${v('location')}\nEmail: ${v('email')}\nPhone: ${v('phone')}\n\n${v('message')}`;
       const url = C.whatsapp ? `https://wa.me/${C.whatsapp}?text=${encodeURIComponent(text)}` : `mailto:${C.email}?subject=${encodeURIComponent('Wedding enquiry — ' + v('name') + ' & ' + v('partner') + ' (' + when + ')')}&body=${encodeURIComponent(text)}`;
-      try { localStorage.removeItem(KEY); } catch (e) {}
-      form.hidden = true; const s = $('.sent'); s.classList.add('on'); $('.who', s).textContent = v('name'); $('.via', s).textContent = C.whatsapp ? 'WhatsApp' : 'Email';
-      const sl = $('.send-link', s); sl.href = url; if (!C.whatsapp) sl.removeAttribute('target');
-      $('.copy-enq', s).onclick = e => { const btn = e.currentTarget; navigator.clipboard.writeText(text).then(() => btn.firstChild.textContent = 'Copied ✓', () => btn.firstChild.textContent = 'Copy failed'); };
-      s.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const btn = $('button[type=submit]', form); btn.disabled = true; btn.firstChild.textContent = 'Sending… ';
+      const lead = { name: v('name'), partner: v('partner'), email: v('email'), phone: v('phone'), event_type: v('type'), event_date: v('date'), location: v('location'), message: v('message') };
+      const done = (mode) => {
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        form.hidden = true; const s = $('.sent'); s.classList.add('on'); $('.who', s).textContent = v('name');
+        const saved = mode === 'supabase';
+        $('.sent-msg', s).textContent = saved ? "We've received your enquiry and will be in touch within 24 hours. Want a faster reply? Message us directly:" : 'Your enquiry is ready — send it to us with one tap below, or copy it.';
+        $('.via', s).textContent = C.whatsapp ? 'WhatsApp' : 'Email';
+        const sl = $('.send-link', s); sl.href = url; if (!C.whatsapp) sl.removeAttribute('target');
+        $('.copy-enq', s).onclick = e => { const b = e.currentTarget; navigator.clipboard.writeText(text).then(() => b.firstChild.textContent = 'Copied ✓', () => b.firstChild.textContent = 'Copy failed'); };
+        s.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      const hp = form.elements.website; if (hp && hp.value) { done('local'); return; }
+      (window.MPF_SUBMIT_LEAD ? window.MPF_SUBMIT_LEAD(lead) : Promise.resolve({ mode: 'none' }))
+        .then(r => done(r && r.mode), err => { console.warn(err); done('none'); })
+        .finally(() => { btn.disabled = false; btn.firstChild.textContent = 'Send enquiry '; });
+      return;
     });
   }
 
   /* year */
   $$('[data-year]').forEach(el => el.textContent = new Date().getFullYear());
-})();
+};
+(window.MPF_READY || Promise.resolve()).then(MPF_BOOT, MPF_BOOT);
