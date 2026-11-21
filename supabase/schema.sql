@@ -366,3 +366,10 @@ alter default privileges in schema public grant all on sequences to service_role
 -- Bootstrap: authorise the first owner(s). Run once, by hand, with real addresses.
 -- insert into public.staff_invites(email, role) values ('you@example.com', 'owner');
 -- =========================================================
+
+-- invite emails are normalised to lowercase automatically
+create or replace function public.staff_invites_normalize() returns trigger language plpgsql set search_path = public as $$
+begin new.email := lower(trim(new.email)); return new; end $$;
+revoke all on function public.staff_invites_normalize() from public, anon, authenticated;
+drop trigger if exists staff_invites_normalize on public.staff_invites;
+create trigger staff_invites_normalize before insert or update on public.staff_invites for each row execute function public.staff_invites_normalize();
