@@ -338,3 +338,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 @media (max-width:520px){.top-search{display:none}.kpi b{font-size:32px}.hbar{grid-template-columns:90px 1fr 32px}}
 @media (hover:none){.mcard .mv{display:flex}.mcard .handle{display:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* password show/hide */
+.pw{position:relative;display:block}
+.pw input{padding-right:48px}
+.pw .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:none;border-radius:8px;display:grid;place-items:center;color:var(--mute);transition:color .2s,background .2s}
+.pw .eye:hover{color:var(--ink);background:rgba(0,0,0,.05)}
+.pw .eye svg{width:20px;height:20px}
+.pw .eye .i-hide{display:none}
+.pw .eye[aria-pressed=true] .i-show{display:none}
+.pw .eye[aria-pressed=true] .i-hide{display:block}

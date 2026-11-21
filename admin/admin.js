@@ -573,7 +573,7 @@ async function viewSettings(v) {
   const emailState = !sup ? ['var(--line-2)', 'Needs Supabase'] : !lastN ? ['var(--warn)', 'No enquiries yet to test with'] : /not configured/.test(lastN.detail || '') ? ['var(--warn)', 'Email service not connected yet'] : lastN.studio_sent ? ['var(--ok)', 'Working — last alert sent ' + fmtAgo(lastN.at)] : ['var(--bad)', 'Last alert failed: ' + (lastN.detail || '')];
   v.innerHTML = `<div class="mk-grid">
     <div class="card"><div class="card-h"><h3>Your account</h3></div><div class="card-b"><dl class="kv"><dt>Signed in as</dt><dd>${esc(session.user.email)}</dd><dt>Role</dt><dd>${esc(ROLE_LABEL[me] || me || '—')}</dd></dl>
-      ${sup ? `<label class="f"><span>New password</span><input type="password" id="np" minlength="8" autocomplete="new-password"></label><button class="btn" id="cp">Change password</button>` : ''}
+      ${sup ? `<label class="f"><span>New password</span><span class="pw"><input type="password" id="np" minlength="8" autocomplete="new-password"><button type="button" class="eye" aria-label="Show password" aria-pressed="false"><svg class="i-show" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="i-hide" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.4 10.4 0 0112 5c6.4 0 10 7 10 7a17.6 17.6 0 01-3.2 4.1M6.6 6.6A17.4 17.4 0 002 12s3.6 7 10 7a9.8 9.8 0 005.4-1.6"/></svg></button></span></label><button class="btn" id="cp">Change password</button>` : ''}
       <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn danger" id="so">Sign out</button>${'Notification' in window && sup ? `<button class="btn" id="bn">${Notification.permission === 'granted' ? 'Browser alerts on ✓' : 'Turn on browser alerts'}</button>` : ''}</div></div></div>
 
     <div class="card"><div class="card-h"><h3>Team</h3><span class="sp"></span><span class="muted" style="font-size:13px">${staff.length} member${staff.length === 1 ? '' : 's'}</span></div><div class="card-b">
@@ -623,6 +623,12 @@ async function showApp() {
     refreshBadge(); const k = (location.hash.slice(2) || 'dashboard').split('/')[0]; if (k === 'dashboard' || (k === 'leads' && !$('#drawer').classList.contains('open'))) route();
   });
 }
+document.addEventListener('click', e => {
+  const b = e.target.closest('.pw .eye'); if (!b) return;
+  const inp = b.parentElement.querySelector('input'), show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password'; b.setAttribute('aria-pressed', show); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  inp.focus({ preventScroll: true }); const n = inp.value.length; try { inp.setSelectionRange(n, n); } catch (x) {}
+});
 async function boot() {
   store = await getStore();
   $$('[data-demo]').forEach(x => x.hidden = store.mode !== 'local');
@@ -635,7 +641,7 @@ async function boot() {
   $('#login').hidden = false;
   if (session && !session.role) { $('.form-err').innerHTML = `Signed in as <b>${esc(session.user.email)}</b>, but this email hasn't been invited to the studio team yet. Ask the owner to invite it, then sign in again. <button type="button" class="link-btn" id="so2">Sign out</button>`; $('#so2').onclick = async () => { await store.signOut(); location.reload(); }; }
   let mode = 'in';
-  const setMode = m => { mode = m; $('#login-form h1').textContent = m === 'up' ? 'Create account' : 'Studio Admin'; $('#login-form button[type=submit]').textContent = m === 'up' ? 'Create account' : 'Sign in'; $('#toggle-mode').innerHTML = m === 'up' ? 'Already have an account? <u>Sign in</u>' : 'Invited to the team? <u>Create your account</u>'; $('[name=password]').autocomplete = m === 'up' ? 'new-password' : 'current-password'; $('#forgot').hidden = m === 'up'; };
+  const setMode = m => { mode = m; $('#login-form h1').textContent = m === 'up' ? 'Create account' : 'Studio Admin'; $('#login-form h1 + .muted').textContent = m === 'up' ? 'Use the email you were invited with. You\'ll get a link to confirm it.' : 'Sign in to manage enquiries, galleries, films and the website.'; $('#login-form button[type=submit]').textContent = m === 'up' ? 'Create account' : 'Sign in'; $('#toggle-mode').innerHTML = m === 'up' ? 'Already have an account? <u>Sign in</u>' : 'Invited to the team? <u>Create your account</u>'; $('[name=password]').autocomplete = m === 'up' ? 'new-password' : 'current-password'; $('#forgot').hidden = m === 'up'; };
   if (store.mode === 'supabase') { const t = el('<button class="link-btn" type="button" id="toggle-mode" style="display:block"></button>'); $('#forgot').after(t); t.onclick = () => setMode(mode === 'in' ? 'up' : 'in'); setMode('in'); }
   const f = $('#login-form');
   f.onsubmit = async e => {
