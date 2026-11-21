@@ -21,7 +21,19 @@ const PLAY = '<svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>';
 })();
 
 const live = isSupabase() || demoHasEdits();
-let storeP = null; const store = () => (storeP = storeP || getStore());
+/* Lightweight public client: plain REST calls, no SDK download for visitors */
+class RestStore {
+  constructor({ url, anonKey }) { this.mode = 'supabase'; this.u = url.replace(/\/$/, '') + '/rest/v1/'; this.h = { apikey: anonKey, 'Content-Type': 'application/json' }; }
+  async _get(path) { const r = await fetch(this.u + path, { headers: this.h }); if (!r.ok) throw new Error(r.status + ' ' + path); return r.json(); }
+  async settings() { const rows = await this._get('settings?select=key,value'); return Object.fromEntries(rows.map(r => [r.key, r.value])); }
+  async list(t) { return this._get(`${t}?select=*&order=sort.asc,created_at.asc`); }
+  async insertLead(lead) {
+    const r = await fetch(this.u + 'leads', { method: 'POST', headers: { ...this.h, Prefer: 'return=minimal' }, body: JSON.stringify(lead) });
+    if (!r.ok) { let m = 'Could not save enquiry'; try { m = (await r.json()).message || m; } catch (e) {} const err = new Error(m); err.code = r.status; throw err; }
+    return true;
+  }
+}
+let storeP = null; const store = () => (storeP = storeP || (isSupabase() ? Promise.resolve(new RestStore(C.supabase)) : getStore()));
 
 /* ---------- lead submission used by site.js ---------- */
 window.MPF_SUBMIT_LEAD = async lead => {

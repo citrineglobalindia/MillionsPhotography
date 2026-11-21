@@ -223,6 +223,8 @@ const srcOf = l => (l.utm && (l.utm.utm_source || l.utm.source)) || l.source || 
 
 async function viewDashboard(v) {
   const leads = cache.leads = await store.list('leads');
+  let needsImport = false;
+  if (store.mode === 'supabase') { try { const [m, S] = await Promise.all([store.list('media'), store.settings()]); needsImport = !m.length && !S.contact; } catch (e) {} }
   const now = new Date(), month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`, wk = Date.now() - 7 * 864e5;
   const booked = leads.filter(l => l.status === 'booked'), open = leads.filter(l => !['booked', 'lost'].includes(l.status));
   const conv = leads.length ? Math.round(booked.length / leads.length * 100) : 0;
@@ -232,7 +234,7 @@ async function viewDashboard(v) {
   const srcRows = Object.entries(src).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, n]) => ({ k, v: n }));
   const upcoming = leads.filter(l => l.event_date && l.event_date >= today() && ['booked', 'quoted', 'meeting'].includes(l.status)).sort((a, b) => a.event_date.localeCompare(b.event_date)).slice(0, 5);
   const due = open.filter(l => l.follow_up && l.follow_up <= today()).slice(0, 5);
-  v.innerHTML = `
+  v.innerHTML = `${needsImport ? `<div class="card" style="margin-bottom:16px;border-color:var(--gold)"><div class="card-b" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:240px"><b style="font-family:var(--f-head);font-size:22px">Your database is empty</b><p class="help" style="margin:2px 0 0">Import the website's current photos, films, stories, FAQs, team and settings so you can start editing them here.</p></div><button class="btn pri" id="doimport">Import website content</button></div></div>` : ''}
   <div class="kpis">
     <div class="card kpi"><span>New enquiries</span><b>${leads.filter(l => l.status === 'new').length}</b><small>${leads.filter(l => new Date(l.created_at) > wk).length} in the last 7 days</small></div>
     <div class="card kpi"><span>This month</span><b>${leads.filter(l => l.created_at && mk(new Date(l.created_at)) === month).length}</b><small>${leads.length} all-time</small></div>
@@ -247,6 +249,20 @@ async function viewDashboard(v) {
       ${due.length ? `<h4 class="section-title" style="font-size:18px;margin:18px 0 4px">Follow-ups due</h4><ul class="list">${due.map(l => `<li><div class="t"><b>${esc(l.name)}</b><small>Due ${fmtDate(l.follow_up)}</small></div><a class="btn sm" href="#/leads/${l.id}">Follow up</a></li>`).join('')}</ul>` : ''}</div></div>
   </div>`;
   $('#ch', v).appendChild(barChart(months));
+  const di = $('#doimport', v); if (di) di.onclick = () => importContent(di);
+}
+async function importContent(btn) {
+  btn.disabled = true; btn.textContent = 'Importing…';
+  try {
+    const seed = await (await fetch('/assets/data/seed.json')).json(); let n = 0;
+    const S = await store.settings();
+    for (const [k, val] of Object.entries(seed.settings)) if (!S[k]) { await store.setSetting(k, val); n++; }
+    for (const t of ['hero_slides', 'media', 'films', 'stories', 'faqs', 'team']) {
+      const existing = await store.list(t); if (existing.length) continue;
+      for (const row of seed[t]) { const r = { ...row }; delete r.id; await store.upsert(t, r); n++; btn.textContent = `Importing… ${n}`; }
+    }
+    toast(`Imported ${n} items — the website now runs from your database`); route();
+  } catch (e) { fail(e); btn.disabled = false; btn.textContent = 'Import website content'; }
 }
 
 /* ================= LEADS ================= */
@@ -269,7 +285,7 @@ async function viewLeads(v, openId) {
     const lv = $('#lv', v);
     if (!rows.length) lv.innerHTML = `<div class="card empty"><b>${leads.length ? 'No matches' : 'No enquiries yet'}</b>${leads.length ? 'Try a different filter or search.' : 'Enquiries from the website contact form land here automatically.'}</div>`;
     else if (leadState.view === 'table') {
-      lv.innerHTML = `<div class="card tbl-wrap"><table class="tbl"><thead><tr><th>Couple</th><th>Event</th><th class="hide-m">Date</th><th>Status</th><th class="hide-m">Source</th><th class="hide-m">Follow-up</th><th class="hide-m">Received</th></tr></thead><tbody>${rows.map(l => `<tr data-open="${l.id}"><td><b>${esc(l.name)}${l.partner ? ' &amp; ' + esc(l.partner) : ''}</b><small>${esc(l.phone || l.email || '')}</small></td><td>${esc(l.event_type || '—')}<small>${esc(l.location || '')}</small></td><td class="hide-m">${fmtDate(l.event_date)}</td><td>${pill(l.status)}</td><td class="hide-m">${esc(srcOf(l))}</td><td class="hide-m">${l.follow_up ? `<span style="color:${l.follow_up <= today() && !['booked', 'lost'].includes(l.status) ? 'var(--bad)' : 'inherit'}">${fmtDate(l.follow_up)}</span>` : '—'}</td><td class="hide-m">${fmtAgo(l.created_at)}</td></tr>`).join('')}</tbody></table></div>`;
+      lv.innerHTML = `<div class="card tbl-wrap"><table class="tbl"><thead><tr><th>Couple</th><th>Event</th><th class="hide-m">Date</th><th>Status</th><th class="hide-m">Source</th><th class="hide-m">Follow-up</th><th class="hide-m">Received</th></tr></thead><tbody>${rows.map(l => `<tr data-open="${l.id}"><td><b>${esc(l.name)}${l.partner ? ' &amp; ' + esc(l.partner) : ''}</b><small>${l.ref ? esc(l.ref) + ' · ' : ''}${esc(l.phone || l.email || '')}</small></td><td>${esc(l.event_type || '—')}<small>${esc(l.location || '')}</small></td><td class="hide-m">${fmtDate(l.event_date)}</td><td>${pill(l.status)}</td><td class="hide-m">${esc(srcOf(l))}</td><td class="hide-m">${l.follow_up ? `<span style="color:${l.follow_up <= today() && !['booked', 'lost'].includes(l.status) ? 'var(--bad)' : 'inherit'}">${fmtDate(l.follow_up)}</span>` : '—'}</td><td class="hide-m">${fmtAgo(l.created_at)}</td></tr>`).join('')}</tbody></table></div>`;
     } else {
       lv.innerHTML = `<div class="board">${STATUSES.map(([s, t]) => `<div class="col" data-col="${s}"><h4>${t} <span>${rows.filter(l => l.status === s).length}</span></h4>${rows.filter(l => l.status === s).map(l => `<div class="lead-card" draggable="true" data-open="${l.id}" data-lead="${l.id}"><b>${esc(l.name)}${l.partner ? ' &amp; ' + esc(l.partner) : ''}</b><small>${esc(l.event_type || 'Enquiry')} · ${esc(l.location || '')}</small><div class="meta"><span>${l.event_date ? fmtDate(l.event_date) : 'Date TBC'}</span><span>${l.value ? inr(l.value) : ''}</span></div></div>`).join('')}</div>`).join('')}</div><p class="help">Drag cards between columns to update status.</p>`;
       let dragId = null;
@@ -305,7 +321,7 @@ function openLead(l, redraw, list) {
     <div class="grid2">${field('Name', 'name', l.name)}${field("Partner's name", 'partner', l.partner)}${field('Email', 'email', l.email, { type: 'email' })}${field('Phone', 'phone', l.phone, { type: 'tel' })}${field('Event type', 'event_type', l.event_type)}${field('Event date', 'event_date', l.event_date || '', { type: 'date' })}</div>
     ${field('Location', 'location', l.location)}
     ${isNew ? field('Message', 'message', l.message, { rows: 4 }) + field('Source', 'source', l.source || 'Manual', { help: 'e.g. Instagram, Referral, Walk-in, WeddingWire' }) : `<h4 class="section-title" style="font-size:18px">Their message</h4><div class="msg">${esc(l.message || '—')}</div>
-    <dl class="kv"><dt>Source</dt><dd>${esc(srcOf(l))}</dd>${l.utm && Object.keys(l.utm).length ? `<dt>Campaign</dt><dd>${esc(Object.entries(l.utm).map(([k, v]) => k.replace('utm_', '') + ': ' + v).join(' · '))}</dd>` : ''}${l.page ? `<dt>Landing page</dt><dd>${esc(l.page)}</dd>` : ''}${l.referrer ? `<dt>Referrer</dt><dd>${esc(l.referrer)}</dd>` : ''}<dt>Received</dt><dd>${new Date(l.created_at).toLocaleString('en-IN')}</dd></dl>
+    <dl class="kv">${l.ref ? `<dt>Reference</dt><dd>${esc(l.ref)}</dd>` : ''}<dt>Source</dt><dd>${esc(srcOf(l))}</dd>${l.utm && Object.keys(l.utm).length ? `<dt>Campaign</dt><dd>${esc(Object.entries(l.utm).map(([k, v]) => k.replace('utm_', '') + ': ' + v).join(' · '))}</dd>` : ''}${l.page ? `<dt>Landing page</dt><dd>${esc(l.page)}</dd>` : ''}${l.referrer ? `<dt>Referrer</dt><dd>${esc(l.referrer)}</dd>` : ''}<dt>Received</dt><dd>${new Date(l.created_at).toLocaleString('en-IN')}</dd></dl>
     <h4 class="section-title" style="font-size:18px">Notes &amp; activity</h4><ul class="timeline">${(l.notes || []).slice().reverse().map(n => `<li>${esc(n.text)}<small>${esc(n.by || '')} · ${fmtAgo(n.at)}</small></li>`).join('') || '<li class="muted">No notes yet.</li>'}</ul>
     <div class="note-add"><input type="text" id="note" placeholder="Add a note — call summary, quote sent, preferences…"><button type="button" class="btn" id="addnote">Add</button></div>`}
   </div>`);
@@ -548,21 +564,49 @@ async function viewMarketing(v) {
 }
 
 /* ================= SETTINGS ================= */
+const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', editor: 'Editor' };
 async function viewSettings(v) {
-  const sup = isSupabase();
+  const sup = isSupabase(), me = session.role;
+  const [staff, invites, S, activity, notif] = await Promise.all([store.staff(), store.invites().catch(() => []), store.settings(), store.activity().catch(() => []), store.notifyStatus().catch(() => [])]);
+  const nset = S.notifications || { emails: [], autoreply: true };
+  const lastN = notif[0];
+  const emailState = !sup ? ['var(--line-2)', 'Needs Supabase'] : !lastN ? ['var(--warn)', 'No enquiries yet to test with'] : /not configured/.test(lastN.detail || '') ? ['var(--warn)', 'Email service not connected yet'] : lastN.studio_sent ? ['var(--ok)', 'Working — last alert sent ' + fmtAgo(lastN.at)] : ['var(--bad)', 'Last alert failed: ' + (lastN.detail || '')];
   v.innerHTML = `<div class="mk-grid">
-    <div class="card"><div class="card-h"><h3>Your account</h3></div><div class="card-b"><dl class="kv"><dt>Signed in as</dt><dd>${esc(session.user.email)}</dd><dt>Role</dt><dd>${esc(session.role || '—')}</dd></dl>
+    <div class="card"><div class="card-h"><h3>Your account</h3></div><div class="card-b"><dl class="kv"><dt>Signed in as</dt><dd>${esc(session.user.email)}</dd><dt>Role</dt><dd>${esc(ROLE_LABEL[me] || me || '—')}</dd></dl>
       ${sup ? `<label class="f"><span>New password</span><input type="password" id="np" minlength="8" autocomplete="new-password"></label><button class="btn" id="cp">Change password</button>` : ''}
-      <div style="margin-top:14px"><button class="btn danger" id="so">Sign out</button></div></div></div>
-    <div class="card"><div class="card-h"><h3>Database connection</h3><span class="sp"></span>${sup ? '<span class="status-dot" style="--c:var(--ok)">Supabase connected</span>' : '<span class="status-dot" style="--c:var(--warn)">Demo mode</span>'}</div><div class="card-b">
-      ${sup ? '<p>Content and enquiries are stored in Supabase. Photos and videos go to the <code>media</code> storage bucket.</p>' : `<p>Right now everything you change is saved <b>only in this browser</b>, and website enquiries go by email. To go live:</p><ol style="padding-left:18px;line-height:1.8"><li>Create a Supabase project.</li><li>Run <code>supabase/schema.sql</code>, then <code>supabase/seed.sql</code>, in its SQL editor.</li><li>Put the project URL and anon key in <code>assets/js/config.js</code> → <code>supabase</code>.</li><li>Sign up here — the first account becomes the owner.</li></ol>`}</div></div>
-    <div class="card"><div class="card-h"><h3>Backup</h3></div><div class="card-b"><p class="help" style="margin-top:0">Download every enquiry, setting and content item as JSON.</p><button class="btn" id="bk">${I.dl}Download backup</button>
-      ${sup ? '' : '<p class="help" style="margin-top:18px">Reset demo data to the original website content (deletes demo enquiries and edits in this browser).</p><button class="btn danger" id="rs">Reset demo data</button>'}</div></div>
-  </div>`;
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn danger" id="so">Sign out</button>${'Notification' in window && sup ? `<button class="btn" id="bn">${Notification.permission === 'granted' ? 'Browser alerts on ✓' : 'Turn on browser alerts'}</button>` : ''}</div></div></div>
+
+    <div class="card"><div class="card-h"><h3>Team</h3><span class="sp"></span><span class="muted" style="font-size:13px">${staff.length} member${staff.length === 1 ? '' : 's'}</span></div><div class="card-b">
+      <ul class="list">${staff.map(m => `<li><span class="avatar" style="width:32px;height:32px;font-size:13px">${esc((m.email || '?')[0].toUpperCase())}</span><div class="t"><b>${esc(m.email)}${m.user_id === session.user.id ? ' <span class="tag">you</span>' : ''}</b><small>Joined ${fmtDate(m.created_at)}</small></div>
+        ${me === 'owner' && m.user_id !== session.user.id ? `<select data-role="${m.user_id}" style="width:auto;height:34px;font-size:13px">${['owner', 'admin', 'editor'].map(r => `<option value="${r}" ${m.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}</select><button class="btn sm ghost danger" data-rmstaff="${m.user_id}" title="Remove">${I.x}</button>` : `<span class="tag">${ROLE_LABEL[m.role] || m.role}</span>`}</li>`).join('')}
+      ${invites.map(i => `<li><span class="avatar" style="width:32px;height:32px;font-size:13px;background:var(--line-2)">✉</span><div class="t"><b>${esc(i.email)}</b><small>Invited as ${ROLE_LABEL[i.role]} · waiting for them to create an account</small></div>${['owner', 'admin'].includes(me) ? `<button class="btn sm ghost danger" data-rminv="${esc(i.email)}">Cancel</button>` : ''}</li>`).join('')}</ul>
+      ${sup && ['owner', 'admin'].includes(me) ? `<div class="rowline" style="margin-top:14px"><label class="f"><span>Invite by email</span><input type="email" id="invemail" placeholder="name@example.com"></label><label class="f"><span>Role</span><select id="invrole"><option value="editor">Editor — content &amp; enquiries</option><option value="admin">Admin — also team &amp; deleting</option>${me === 'owner' ? '<option value="owner">Owner — full control</option>' : ''}</select></label><button class="btn pri" id="inv">Invite</button></div><p class="help">They create an account at <code>${esc(location.origin)}/admin</code> with that email, confirm it, and they're in.</p>` : ''}
+    </div></div>
+
+    <div class="card"><div class="card-h"><h3>Enquiry email alerts</h3><span class="sp"></span><span class="status-dot" style="--c:${emailState[0]}">${esc(emailState[1])}</span></div><div class="card-b" id="nf">
+      ${field('Send new-enquiry alerts to', 'emails', (nset.emails || []).join(', '), { ph: 'studio@example.com, owner@example.com', help: 'Comma-separated. Each alert includes all details, a WhatsApp reply link and an "Open in CRM" button.' })}
+      ${toggle('Send couples an instant "thank you" email with their reference number', 'autoreply', nset.autoreply !== false)}
+      <button class="btn pri" id="savenf" ${sup ? '' : 'disabled'}>Save alert settings</button>
+      <p class="help" style="margin-top:12px">Alerts are sent by the <code>notify-lead</code> function through Resend. Until a Resend API key is added in Supabase → Edge Functions → Secrets (<code>RESEND_API_KEY</code>), enquiries are still saved and appear here live — just without email.</p></div></div>
+
+    <div class="card"><div class="card-h"><h3>Database &amp; backup</h3><span class="sp"></span>${sup ? '<span class="status-dot" style="--c:var(--ok)">Supabase connected</span>' : '<span class="status-dot" style="--c:var(--warn)">Demo mode</span>'}</div><div class="card-b">
+      <p class="help" style="margin-top:0">${sup ? 'Content, enquiries and uploads are stored in Supabase (photos and videos in the <code>media</code> bucket). Every change is recorded in the activity log.' : 'Everything is saved only in this browser.'}</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="bk">${I.dl}Download backup (JSON)</button>${sup && me === 'owner' ? '<button class="btn" id="imp">Import missing website content</button>' : ''}${sup ? '' : '<button class="btn danger" id="rs">Reset demo data</button>'}</div></div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="card-h"><h3>Activity log</h3><span class="sp"></span><span class="muted" style="font-size:13px">Latest ${activity.length}</span></div><div class="card-b">
+    ${activity.length ? `<ul class="list">${activity.map(a => `<li><div class="t"><b>${esc(a.summary || a.table_name)}</b><small>${esc({ insert: 'Added', update: 'Updated', delete: 'Deleted', join: 'Joined' }[a.action] || a.action)} · ${esc((a.table_name || '').replace('_', ' '))} · ${esc(a.email || 'system')}</small></div><small class="muted">${fmtAgo(a.at)}</small></li>`).join('')}</ul>` : `<p class="muted">${sup ? 'No activity yet.' : 'The activity log is available once Supabase is connected.'}</p>`}
+  </div></div>`;
   $('#so', v).onclick = async () => { await store.signOut(); location.hash = ''; location.reload(); };
   $('#bk', v).onclick = async () => { const d = await store.exportAll(); download(`mpf-backup-${today()}.json`, JSON.stringify(d, null, 2), 'application/json'); };
   const rs = $('#rs', v); if (rs) rs.onclick = async () => { if (await confirmBox('Reset demo data?', 'All demo edits and test enquiries in this browser will be removed.', 'Reset')) { await store.reset(); toast('Demo data reset'); location.reload(); } };
-  const cp = $('#cp', v); if (cp) cp.onclick = async () => { const p = $('#np', v).value; if (p.length < 8) return toast('Use at least 8 characters', true); const { error } = await store.sb.auth.updateUser({ password: p }); error ? fail(error) : toast('Password changed'); };
+  const cp = $('#cp', v); if (cp) cp.onclick = async () => { const p = $('#np', v).value; if (p.length < 8) return toast('Use at least 8 characters', true); try { await store.updatePassword(p); toast('Password changed'); } catch (e) { fail(e); } };
+  const bn = $('#bn', v); if (bn) bn.onclick = async () => { const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Browser alerts on — you\'ll get a pop-up for every new enquiry while the admin is open' : 'Browser alerts were blocked'); viewSettings(v); };
+  const inv = $('#inv', v); if (inv) inv.onclick = async () => { const em = $('#invemail', v).value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return toast('Enter a valid email', true); try { await store.invite(em, $('#invrole', v).value); toast('Invited ' + em); viewSettings(v); } catch (e) { fail(e); } };
+  $$('[data-rminv]', v).forEach(b => b.onclick = async () => { try { await store.revokeInvite(b.dataset.rminv); toast('Invite cancelled'); viewSettings(v); } catch (e) { fail(e); } });
+  $$('[data-role]', v).forEach(sel => sel.onchange = async () => { try { await store.setStaffRole(sel.dataset.role, sel.value); toast('Role updated'); } catch (e) { fail(e); viewSettings(v); } });
+  $$('[data-rmstaff]', v).forEach(b => b.onclick = async () => { if (await confirmBox('Remove this person?', 'They will lose access to the admin immediately.', 'Remove')) { try { await store.removeStaff(b.dataset.rmstaff); toast('Removed'); viewSettings(v); } catch (e) { fail(e); } } });
+  const snf = $('#savenf', v); if (snf) snf.onclick = async () => { const o = vals($('#nf', v)); const emails = o.emails.split(/[,;\s]+/).map(x => x.trim().toLowerCase()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)); try { await store.setSetting('notifications', { emails, autoreply: o.autoreply }); toast('Alert settings saved'); } catch (e) { fail(e); } };
+  const imp = $('#imp', v); if (imp) imp.onclick = () => importContent(imp);
 }
 
 /* ================= boot ================= */
@@ -573,6 +617,11 @@ async function showApp() {
   const mb = $('#mode-badge'); mb.textContent = store.mode === 'supabase' ? 'Live · Supabase' : 'Demo mode'; mb.style.setProperty('--c', store.mode === 'supabase' ? '#7fbf95' : '#e0a85a');
   await refreshBadge();
   window.addEventListener('hashchange', route); route();
+  store.onNewLead(l => {
+    toast(`New enquiry: ${l.name}${l.partner ? ' & ' + l.partner : ''}${l.ref ? ' · ' + l.ref : ''}`);
+    try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification('New enquiry — MPF', { body: `${l.name}${l.partner ? ' & ' + l.partner : ''} · ${l.event_type || ''}`, icon: '/assets/favicon.svg' }).onclick = () => { window.focus(); location.hash = '#/leads/' + l.id; }; } catch (e) {}
+    refreshBadge(); const k = (location.hash.slice(2) || 'dashboard').split('/')[0]; if (k === 'dashboard' || (k === 'leads' && !$('#drawer').classList.contains('open'))) route();
+  });
 }
 async function boot() {
   store = await getStore();
@@ -584,12 +633,25 @@ async function boot() {
   $('#boot').classList.add('gone'); setTimeout(() => $('#boot').remove(), 500);
   if (session && session.role) return showApp();
   $('#login').hidden = false;
-  if (session && !session.role) $('.form-err').textContent = 'This account is signed in but is not on the studio staff list. Ask the owner to add you.';
+  if (session && !session.role) { $('.form-err').innerHTML = `Signed in as <b>${esc(session.user.email)}</b>, but this email hasn't been invited to the studio team yet. Ask the owner to invite it, then sign in again. <button type="button" class="link-btn" id="so2">Sign out</button>`; $('#so2').onclick = async () => { await store.signOut(); location.reload(); }; }
+  let mode = 'in';
+  const setMode = m => { mode = m; $('#login-form h1').textContent = m === 'up' ? 'Create account' : 'Studio Admin'; $('#login-form button[type=submit]').textContent = m === 'up' ? 'Create account' : 'Sign in'; $('#toggle-mode').innerHTML = m === 'up' ? 'Already have an account? <u>Sign in</u>' : 'Invited to the team? <u>Create your account</u>'; $('[name=password]').autocomplete = m === 'up' ? 'new-password' : 'current-password'; $('#forgot').hidden = m === 'up'; };
+  if (store.mode === 'supabase') { const t = el('<button class="link-btn" type="button" id="toggle-mode" style="display:block"></button>'); $('#forgot').after(t); t.onclick = () => setMode(mode === 'in' ? 'up' : 'in'); setMode('in'); }
   const f = $('#login-form');
   f.onsubmit = async e => {
     e.preventDefault(); const o = vals(f), err = $('.form-err', f), btn = $('button[type=submit]', f); err.textContent = ''; btn.disabled = true; btn.textContent = 'Signing in…';
-    try { session = await store.signIn(o.email, o.password); if (!session || !session.role) throw new Error('Signed in, but this account is not on the studio staff list.'); showApp(); }
-    catch (x) { err.textContent = x.message; } finally { btn.disabled = false; btn.textContent = 'Sign in'; }
+    try {
+      if (mode === 'up') {
+        if (o.password.length < 8) throw new Error('Use a password of at least 8 characters.');
+        const r = await store.signUp(o.email, o.password);
+        if (r.needsConfirm) { err.style.color = 'var(--ok)'; err.textContent = `Almost done — we've emailed a confirmation link to ${o.email}. Click it, then sign in here.`; setMode('in'); return; }
+        session = await store.session();
+      } else session = await store.signIn(o.email, o.password);
+      if (!session || !session.role) throw new Error(`Signed in, but ${o.email} hasn't been invited to the studio team yet. Ask the owner to invite it.`);
+      showApp();
+    }
+    catch (x) { err.style.color = ''; err.textContent = /Email not confirmed/i.test(x.message) ? 'Please confirm your email first — check your inbox for the link.' : /Invalid login/i.test(x.message) ? 'Wrong email or password.' : x.message; }
+    finally { btn.disabled = false; btn.textContent = mode === 'up' ? 'Create account' : 'Sign in'; }
   };
   $('#forgot').onclick = async () => { const em = $('[name=email]', f).value; if (!em) return $('.form-err', f).textContent = 'Enter your email above first.'; try { await store.resetPassword(em); toast('Reset link sent — check your inbox'); } catch (x) { $('.form-err', f).textContent = x.message; } };
 }

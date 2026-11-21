@@ -274,7 +274,7 @@ const MPF_BOOT = () => {
         try { localStorage.removeItem(KEY); } catch (e) {}
         form.hidden = true; const s = $('.sent'); s.classList.add('on'); $('.who', s).textContent = v('name');
         const saved = mode === 'supabase';
-        $('.sent-msg', s).textContent = saved ? "We've received your enquiry and will be in touch within 24 hours. Want a faster reply? Message us directly:" : 'Your enquiry is ready — send it to us with one tap below, or copy it.';
+        $('.sent-msg', s).textContent = mode === 'dup' ? "We already have your enquiry from a few minutes ago — we'll be in touch soon. Need us sooner? Message us directly:" : saved ? "We've received your enquiry and will be in touch within 24 hours. Want a faster reply? Message us directly:" : 'Your enquiry is ready — send it to us with one tap below, or copy it.';
         $('.via', s).textContent = C.whatsapp ? 'WhatsApp' : 'Email';
         const sl = $('.send-link', s); sl.href = url; if (!C.whatsapp) sl.removeAttribute('target');
         $('.copy-enq', s).onclick = e => { const b = e.currentTarget; navigator.clipboard.writeText(text).then(() => b.firstChild.textContent = 'Copied ✓', () => b.firstChild.textContent = 'Copy failed'); };
@@ -282,7 +282,7 @@ const MPF_BOOT = () => {
       };
       const hp = form.elements.website; if (hp && hp.value) { done('local'); return; }
       (window.MPF_SUBMIT_LEAD ? window.MPF_SUBMIT_LEAD(lead) : Promise.resolve({ mode: 'none' }))
-        .then(r => done(r && r.mode), err => { console.warn(err); done('none'); })
+        .then(r => done(r && r.mode), err => { console.warn(err); done(/duplicate/i.test(err && err.message) ? 'dup' : 'none'); })
         .finally(() => { btn.disabled = false; btn.firstChild.textContent = 'Send enquiry '; });
       return;
     });

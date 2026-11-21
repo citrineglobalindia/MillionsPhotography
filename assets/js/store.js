@@ -63,7 +63,14 @@ class LocalStore {
   async upload(path, blob) {
     return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
   }
-  async insertLead(lead) { return this.upsert('leads', { status: 'new', notes: [], ...lead }); }
+  async insertLead(lead) { return this.upsert('leads', { status: 'new', notes: [], ref: 'MPF-' + (1000 + (await this.list('leads')).length + 1), ...lead }); }
+  async signUp() { throw new Error('Accounts are created once Supabase is connected. In demo mode, just sign in.'); }
+  async staff() { const s = await this.session(); return s ? [{ user_id: 'demo', email: s.user.email, role: 'owner', created_at: new Date().toISOString() }] : []; }
+  async invites() { return []; }
+  async invite() { throw new Error('Team invites need Supabase.'); }
+  async revokeInvite() {} async setStaffRole() {} async removeStaff() {}
+  async activity() { return []; } async notifyStatus() { return []; }
+  onNewLead() { return () => {}; }
   async exportAll() { return JSON.parse(JSON.stringify(await this._db())); }
 }
 
@@ -95,7 +102,25 @@ class SupaStore {
     this._e(await this.sb.storage.from('media').upload(path, blob, { contentType: contentType || blob.type, upsert: true, cacheControl: '31536000' }));
     return this.sb.storage.from('media').getPublicUrl(path).data.publicUrl;
   }
-  async insertLead(lead) { this._e(await this.sb.from('leads').insert({ ...lead, status: 'new', notes: [] })); return true; }
+  async insertLead(lead) { this._e(await this.sb.from('leads').insert({ ...lead })); return true; }
+  async signUp(email, password) {
+    const r = await this.sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/admin' } });
+    if (r.error) throw new Error(r.error.message);
+    return { needsConfirm: !r.data.session };
+  }
+  async staff() { return this._e(await this.sb.from('staff').select('*').order('created_at')); }
+  async invites() { return this._e(await this.sb.from('staff_invites').select('*').order('created_at')); }
+  async invite(email, role) { this._e(await this.sb.from('staff_invites').upsert({ email: email.toLowerCase().trim(), role, invited_by: (await this.sb.auth.getUser()).data.user.id })); }
+  async revokeInvite(email) { this._e(await this.sb.from('staff_invites').delete().eq('email', email)); }
+  async setStaffRole(userId, role) { this._e(await this.sb.from('staff').update({ role }).eq('user_id', userId)); }
+  async removeStaff(userId) { this._e(await this.sb.from('staff').delete().eq('user_id', userId)); }
+  async activity(limit = 60) { return this._e(await this.sb.from('audit_log').select('*').order('at', { ascending: false }).limit(limit)); }
+  async notifyStatus() { return this._e(await this.sb.from('lead_notifications').select('*').order('at', { ascending: false }).limit(5)); }
+  onNewLead(cb) {
+    const ch = this.sb.channel('mpf-leads').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, p => cb(p.new)).subscribe();
+    return () => this.sb.removeChannel(ch);
+  }
+  async updatePassword(p) { this._e(await this.sb.auth.updateUser({ password: p })); }
   async exportAll() {
     const out = { settings: await this.settings() };
     for (const t of TABLES) out[t] = await this.list(t);
